@@ -203,6 +203,14 @@ Detailed paths:
 - Test 1 positive, Test 2 negative, Test 3 positive -> Positive
 - Test 1 positive, Test 2 negative, Test 3 negative -> Negative
 
+Upload timing:
+
+- do not upload individual test records one by one
+- keep the flow locally until the final flow result is known
+- upload the whole flow through grouped test upload only after the flow is complete
+- if Test 1 is negative, the flow is complete and can be uploaded immediately
+- if confirmation is required, upload only after the user aborts or after the final confirmation result is known
+
 ## 9. Modal Queue Behavior
 
 This is a critical runtime behavior and must be implemented explicitly.
@@ -420,6 +428,12 @@ Main endpoints expected for this device:
 - `POST /api/webapi/v2/DeviceHealth/anonymous` (planned backend extension)
 - `POST /api/webapi/v2/GroupedTestRecords/{id}/comment`
 
+Do not use:
+
+- deprecated single-record upload endpoints such as `POST /api/webapi/v2/TestRecords`
+- deprecated anonymous single-record upload endpoints such as `POST /api/webapi/v2/TestRecords/anonymous`
+- this device must upload normal test results through grouped test upload only
+
 ### 14.2 Payload Strategy
 
 Use the minimum payload that matches the required device behavior.
@@ -431,6 +445,7 @@ For grouped test upload, focus on:
 - `comments`
 - `appVersion`
 - `testRecords`
+- `testRecords` contains the full finished flow, not individual partial uploads
 
 Per test record:
 
@@ -449,6 +464,18 @@ Per test record:
 - `rawQR`
 - `cassetteId`
 - `appVersion`
+
+`readerData` rule:
+
+- `readerData` is the raw byte response from the reader, encoded to base64 for upload
+- do not transform it into a custom JSON structure before upload
+- treat it as opaque raw device output
+
+Date/time rule:
+
+- `testDate` and `testDateOffset` must represent the device-local date/time and the configured timezone offset at the time of testing
+- do not upload timestamps without timezone context
+- this is required so the cloud can display the test time correctly in the timezone in which the test was taken
 
 For verification upload:
 
@@ -512,7 +539,10 @@ Other settings/toggles:
 Date/time:
 
 - the user sets date, time, and timezone
-- upload timestamps with timezone data
+- display date and time in the device using the user-selected local timezone
+- always upload timestamps with timezone data
+- always send the correct `testDateOffset` that matches the timezone configured on the device, for example `+02:00`
+- backend/cloud must receive timezone information so test times can be shown correctly in the timezone in which the test was taken
 
 Software update:
 
@@ -613,3 +643,224 @@ LINS export:
 - editing annotations on the device
 - GPS-based location upload
 - restoring historical records from backend back onto the device after reset
+
+## 20. Implementation Appendix
+
+### 20.1 Environments
+
+Known environments:
+
+- Development API base URL: `https://dev-milksafe.chr-hansen.com/api/v2`
+- Development login token URL: `https://chrhmilksafedev.b2clogin.com/tfp/chrhmilksafedev.onmicrosoft.com/B2C_1A_ROPC_Auth/oauth2/v2.0/token`
+- Development OAuth client ID: `db37c287-9f52-460d-a80e-4b15a5c2f6e8`
+- Staging API base URL: `https://stg-milksafe.chr-hansen.com/api/v2`
+- Staging login token URL: `https://chrhmilksafestaging.b2clogin.com/tfp/chrhmilksafestaging.onmicrosoft.com/B2C_1A_ROPC_Auth/oauth2/v2.0/token`
+- Staging OAuth client ID: `3755b774-3b08-4dc2-9763-ab793fdfcb3b`
+- Pre-production API base URL: `https://preprd-milksafe.chr-hansen.com/api/v2`
+- Pre-production login token URL: `https://chrhmilksafepreprod.b2clogin.com/tfp/chrhmilksafepreprod.onmicrosoft.com/B2C_1A_ROPC_Auth/oauth2/v2.0/token`
+- Pre-production OAuth client ID: `f8afc25d-b6bf-441e-92da-0e5aad497983`
+- Production API base URL: `https://milksafe.chr-hansen.com/api/v2`
+- Production login token URL: `https://chrhmilksafe.b2clogin.com/tfp/chrhmilksafe.onmicrosoft.com/B2C_1A_ROPC_Auth/oauth2/v2.0/token`
+- Production OAuth client ID: `3d572dff-4080-4317-87e6-e5fbe6c4c6ca`
+
+Environment note:
+
+- pre-production is the main recommended testing environment for this project
+- pre-production mirrors production closely
+- production data is copied to pre-production on the first day of each month
+
+### 20.2 Authentication and Login Sequence
+
+Authentication is based on Azure B2C ROPC token exchange in the current mobile application implementation.
+
+Login request:
+
+- method: `POST`
+- content type: `application/x-www-form-urlencoded`
+- token path: `/token`
+- required fields: `username`, `password`, `grant_type=password`, `scope=openid <client_id> offline_access`, `client_id`, `response_type=token id_token`
+
+Token behavior in the current mobile applications:
+
+- both `access_token` and `refresh_token` are stored locally
+- authenticated API requests use `Authorization: Bearer <access_token>`
+- if an authenticated request returns `401`, the client calls the same token endpoint with `grant_type=refresh_token`
+- the new access token and refresh token are stored again after refresh
+- practical behavior is a persistent session until logout, as long as token refresh continues to work
+- exact server-side token lifetime is not documented in this specification
+
+Login and configuration load sequence:
+
+Recommended sequence:
+
+1. Authenticate with MilkSafe Cloud username and password for the same user type used in DRC and MobileLabs.
+2. Store the authenticated session/token.
+3. Call `GET /api/webapi/v2/Users/me`.
+4. Use the returned user/site context to call `GET /api/webapi/v2/TestTypes`.
+5. Call `GET /api/webapi/v2/Sites/{id}` and apply the site's enabled test types.
+6. Cache the full test type list and the effective site configuration locally.
+7. After successful login, move cached anonymous grouped test records into the logged-in queue, clear their remote group IDs, and reupload them through `POST /api/webapi/v2/GroupedTestRecords`.
+
+Important:
+
+- do not reassign anonymous verification records after login
+- if the device stays anonymous, keep using local test type configuration plus anonymous upload behavior
+- when uploading tests or verification, always include the correct timezone offset from the device configuration
+
+### 20.3 Grouped Test Upload Example
+
+Use `POST /api/webapi/v2/GroupedTestRecords`.
+
+Implementation notes:
+
+- send one grouped payload per completed flow
+- the `testRecords` list contains all test records from that finished flow
+- do not upload test records one by one as they are produced
+- if the first test is negative, upload the group immediately because the flow is complete
+- if confirmation is required, keep the records locally and upload only after the user aborts or after the final result is known
+- do not use deprecated `POST /api/webapi/v2/TestRecords` or `POST /api/webapi/v2/TestRecords/anonymous` for this device
+- the example below follows the minimum payload pattern already used by the mobile applications
+- `readerData` should be base64-encoded reader output
+- `testDateOffset` must match the timezone configured on the device
+- use `POST /api/webapi/v2/GroupedTestRecords/{id}/comment` for group comments when comments are added after the group already exists
+
+```json
+{
+  "appVersion": "1.0.0",
+  "testRecords": [
+    {
+      "testDate": "2026-04-09T10:26:00Z",
+      "testDateOffset": "+02:00",
+      "readerSerialNumber": "5PR-000123",
+      "route": "SAMPLE-182",
+      "result": "Positive",
+      "readerData": "<base64-reader-data>",
+      "testTypeId": 101,
+      "operatorId": "OP-17",
+      "substances": [
+        {
+          "substanceId": 1,
+          "level": 0.42,
+          "result": "Positive",
+          "readerResultReference": "T1"
+        }
+      ],
+      "annotation": "Original",
+      "manufacturingDate": "2026-01-15",
+      "batchNumber": "250428E002",
+      "rawQR": "05250428E002002627",
+      "cassetteId": "002627",
+      "appVersion": "1.0.0"
+    }
+  ]
+}
+```
+
+### 20.4 Anonymous Grouped Upload Rules
+
+Use `POST /api/webapi/v2/GroupedTestRecords/anonymous`.
+
+Rules:
+
+- keep the full local values for route/sample ID, operator ID, and user-related linkage so the group can later be reassigned after login
+- do not upload route/sample ID, operator identity, or user identity in plain form
+- upload `readerSerialNumber` in plain form
+- upload empty location
+- keep the local history state as `not synced`
+- when the user later logs in, reupload the cached groups through the normal grouped endpoint
+
+Reference note:
+
+- the current mobile applications use the anonymous grouped endpoint with anonymous field transformation
+- in the mobile applications, `route` is removed and `operatorId` is replaced with a device identifier
+- the 5-Port Reader should follow the same anonymous-endpoint pattern, with the product rules in this document taking precedence
+
+### 20.5 Verification Upload Example
+
+Use `POST /api/webapi/v2/DeviceHealth`.
+
+Implementation notes:
+
+- send one payload per verification run
+- `readerData` should be base64-encoded reader output
+- `substances[*].intensity` is part of the verification payload
+- `testDateOffset` must match the timezone configured on the device
+- pass/fail is determined by the verification rules in this document, not only by HTTP success
+
+```json
+{
+  "readerSerialNumber": "5PR-000123",
+  "testDate": "2026-04-09T10:26:00Z",
+  "testDateOffset": "+02:00",
+  "comments": "Scheduled verification",
+  "result": "Negative",
+  "readerData": "<base64-reader-data>",
+  "testTypeId": 0,
+  "operatorId": "OP-17",
+  "substances": [
+    {
+      "substanceId": 1,
+      "level": 1.0,
+      "result": "Negative",
+      "readerResultReference": "V1",
+      "intensity": 523456
+    }
+  ],
+  "deviceType": "Portable",
+  "temperature": {
+    "measuredTemperature": 40.1,
+    "deviceTemperature": 40.0
+  },
+  "readerSoftwareVersion": "1.0.0",
+  "appVersion": "1.0.0"
+}
+```
+
+### 20.6 Planned Anonymous Verification Endpoint
+
+Target behavior:
+
+- use `POST /api/webapi/v2/DeviceHealth/anonymous`
+- use the same payload structure as `POST /api/webapi/v2/DeviceHealth`
+- upload anonymous verification records there
+- do not reassign anonymous verification records after login
+
+Dependency:
+
+- this endpoint is a planned backend extension and is not yet present in the current Swagger
+
+### 20.7 ReaderData
+
+`readerData` should be documented and handled as raw reader output.
+
+Current mobile application behavior:
+
+- the reader returns raw measurement bytes as `[UInt8]`
+- the application stores those exact raw bytes in `readerData`
+- upload serializes `readerData` as a base64 string
+
+Qualitative flow details from the current parser:
+
+- the parser strips the first 2 bytes and the last 4 bytes from the raw response
+- the remaining payload is processed in 7-byte sets
+- each set contains position, height, and area values
+- the app uses those parsed values to calculate ratios and results, but the uploaded `readerData` remains the original raw bytes
+
+Quantitative flow details from the current parser:
+
+- the app still stores the original raw bytes in `readerData`
+- it also interprets the response as UTF-8 text split by `#` for app-side parsing of quantitative result data
+- even in this case, the upload field should still contain the original raw bytes encoded to base64
+
+Implementation rule:
+
+- treat `readerData` as opaque raw device output for backend traceability and future reprocessing
+- do not replace it with parsed ratios, JSON objects, or debug strings
+
+### 20.8 Local Export Notes
+
+- CSV and Excel are local device exports, not backend report downloads
+- use the exact column order and header names from `export.csv`
+- preserve the header spelling from the reference file, including `Timedate`
+- Excel uses the same dataset and column structure as CSV
+- LINS export is also required, but its exact structure still needs to be added when provided

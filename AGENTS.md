@@ -66,6 +66,7 @@ Important reference areas:
 - Each channel can run its own test flow independently.
 - Confirmation flow always stays in the same physical channel.
 - The system groups related test records into one flow/group and uploads that grouped result to the cloud.
+- The 5-port reader must upload completed flows through grouped test upload only; it must not upload normal test records one by one through deprecated single-record endpoints.
 - In this documentation, `group` and `flow` mean the same thing.
 - In backend terminology, UI `sample ID` maps to backend field `route`.
 - A group can contain up to 3 tests in the current intended confirmation flow.
@@ -111,6 +112,11 @@ Important reference areas:
 - CSV and Excel exports are local device exports, not backend export endpoints.
 - CSV and Excel should use the same structure, based on `export.csv` in this repository.
 - LINS export is also required; the exact structure still needs to be provided.
+- Known backend/app environments are development, staging, pre-production, and production.
+- Pre-production is the recommended main testing environment and product direction says it is refreshed from production on the first day of each month.
+- Authentication in the mobile application uses Azure B2C ROPC token exchange, stores both access and refresh tokens locally, and refreshes access on `401` using the refresh token.
+- `readerData` in mobile-app uploads is the raw reader byte response stored as `Data` and uploaded as a base64 string; it should be treated as opaque raw device output.
+- Date and time must always be shown on the device in the user-configured local timezone, and uploads must include the correct timezone offset so cloud views can display the correct local test time.
 
 ## Languages / Localization
 
@@ -246,6 +252,13 @@ For the 5-port documentation:
 - `GET /api/webapi/v2/Firmware/{type}/latest`
 - `POST /api/webapi/v2/GroupedTestRecords/{id}/comment`
 
+### Endpoints not to use for the 5-port reader
+
+- `POST /api/webapi/v2/TestRecords`
+- `POST /api/webapi/v2/TestRecords/anonymous`
+
+These old single-record uploads are not the intended integration path for the new device.
+
 ### Useful grouped-test payload fields
 
 From `CreateGroupedTestRecordCommand` and the iOS upload model, the main fields worth documenting are:
@@ -284,6 +297,7 @@ From `CreateGroupedTestRecordCommand` and the iOS upload model, the main fields 
 - Prefer proven behavior from existing MilkSafe implementations over OpenAPI breadth.
 - When a product rule differs from iOS or DRC, document the difference explicitly.
 - If a source is contradictory, do not resolve it by assumption. Record the conflict and get user clarification first.
+- Keep any implementation appendix short and limited to login/auth sequencing, upload examples, anonymous-upload rules, verification upload, and local export notes.
 
 ## Document Additions To Include
 

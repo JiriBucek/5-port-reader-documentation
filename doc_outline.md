@@ -8,7 +8,8 @@ Use this order:
 2. Review core rules and flow behavior.
 3. Review local/cloud and API behavior.
 4. Add final payload examples and endpoint details from Swagger.
-5. Convert the approved markdown into `doc.docx`.
+5. Add the short implementation appendix.
+6. Convert the approved markdown into `doc.docx`.
 
 Why this workflow:
 
@@ -132,6 +133,8 @@ Why this workflow:
 ## 14. API Integration
 
 - main endpoint set
+- grouped upload only after flow completion
+- do not use deprecated single-record upload endpoints
 - grouped test payload strategy
 - verification payload strategy
 - mobile applications as behavior reference
@@ -169,3 +172,14 @@ Why this workflow:
 - annotation editing
 - GPS location upload
 - restoring history from cloud after reset
+
+## 20. Implementation Appendix
+
+- environments
+- authentication and login sequence
+- grouped test upload example
+- anonymous grouped upload rules
+- verification upload example
+- planned `DeviceHealth/anonymous`
+- `readerData` handling
+- local export notes
