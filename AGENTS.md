@@ -111,7 +111,7 @@ Important reference areas:
 - Anonymous verification records should still be uploaded to the anonymous data site/customer, but they are not reassigned to the user after login.
 - CSV and Excel exports are local device exports, not backend export endpoints.
 - CSV and Excel should use the same structure, based on `export.csv` in this repository.
-- LINS export is also required; the exact structure still needs to be provided.
+- LIMS integration/export is also required, but the exact implementation is intentionally left to BioEasy.
 - Known backend/app environments are development, staging, pre-production, and production.
 - Pre-production is the recommended main testing environment and product direction says it is refreshed from production on the first day of each month.
 - Authentication in the mobile application uses Azure B2C ROPC token exchange, stores both access and refresh tokens locally, and refreshes access on `401` using the refresh token.

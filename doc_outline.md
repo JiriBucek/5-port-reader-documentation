@@ -158,12 +158,12 @@ Why this workflow:
 - Aflatoxin handling
 - calibration loading
 
-## 18. Export, Printing, and LINS
+## 18. Export, Printing, and LIMS
 
 - CSV
 - Excel
 - local CSV/Excel structure from `export.csv`
-- LINS
+- LIMS owned by BioEasy
 - print behavior
 
 ## 19. Out of Scope

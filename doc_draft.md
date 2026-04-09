@@ -533,7 +533,7 @@ Other settings/toggles:
 - Route / Sample ID on/off
 - Operator ID on/off
 - Incubator on/off
-- LINS on/off
+- LIMS on/off
 - Sound on/off
 
 Date/time:
@@ -589,13 +589,13 @@ Rules:
 - Aflatoxin flow should follow the current desktop-reader approach
 - Aflatoxin calibration curve must be loadable through ID chip or QR scanning
 
-## 18. Export, Printing, and LINS
+## 18. Export, Printing, and LIMS
 
 Required capabilities:
 
 - export grouped test records locally to CSV
 - export grouped test records locally to Excel
-- export to LINS
+- export to LIMS
 - print individual test results
 - print grouped test results
 - print verification results
@@ -632,10 +632,10 @@ CSV and Excel column structure:
 - `Test Type`
 - `Batch Number`
 
-LINS export:
+LIMS export:
 
-- LINS export is required in addition to CSV and Excel
-- the exact LINS export structure is not defined in this document yet and should be added when provided
+- LIMS integration/export is required in addition to CSV and Excel
+- the exact LIMS format, transport, and implementation are left to BioEasy
 
 ## 19. Out of Scope
 
@@ -863,4 +863,4 @@ Implementation rule:
 - use the exact column order and header names from `export.csv`
 - preserve the header spelling from the reference file, including `Timedate`
 - Excel uses the same dataset and column structure as CSV
-- LINS export is also required, but its exact structure still needs to be added when provided
+- LIMS integration/export is also required, but its exact implementation is intentionally left to BioEasy
