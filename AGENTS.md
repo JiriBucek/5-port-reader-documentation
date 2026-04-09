@@ -16,6 +16,12 @@ This repository is for writing one concise, developer-facing implementation docu
 
 - `High level requirements.docx`
 - `openapi.json`
+- `export.csv`
+
+### External reference URLs
+
+- Production Swagger URL: `https://chrhansenmilksafefunctions-prod.azurewebsites.net/api/swagger/ui#/DeviceHealth/post_api_webapi_v2_DeviceHealth`
+- Prototype URL: `https://5-port-reader-prototype.milksafe-preview.workers.dev/`
 
 ### Nearby prototype repository
 
@@ -77,6 +83,9 @@ Important reference areas:
 - When the user later logs in on the same device, previously anonymous grouped test records should be reassigned to that user and uploaded normally to their site, mirroring the current iOS behavior.
 - Comments are intended to exist at the group/flow level, not as editable per-test annotations on the device.
 - Positive control and animal control are required.
+- Positive control and animal control are single-test control flows with no confirmation flow.
+- A positive control that does not produce a positive result should simply be shown as a failed control state with a cross; it does not trigger verification or any extra flow.
+- Animal control uses the same runtime behavior as positive control, but with a different control annotation/type.
 - Verification is required.
 - Verification is run from Settings via a dedicated `Run verification` action, not from the normal run-test flow.
 - Verification passes when the measured ratio is within `0.9` to `1.1`.
@@ -95,9 +104,13 @@ Important reference areas:
 - Cloud device-health logic uses a default verification threshold of `250` aggregated tests across all five slots.
 - The user may lower the local warning threshold on the device to any value at or below `250` in Settings, but the cloud/system default remains `250`.
 - When the device exceeds the threshold, the current product baseline is a warning in Settings; a startup warning popup is acceptable but not yet a locked prototype requirement.
+- The intended behavior is also a small startup warning modal when the device is overdue for verification, but this is not implemented in the current prototype.
 - Individual test-detail screens should include a light-intensity chart for each test record.
 - Light intensity for normal test records is local-only device data used for the test-detail chart and is not uploaded to the backend.
 - Anonymous verification records should still be uploaded to the anonymous data site/customer, but they are not reassigned to the user after login.
+- CSV and Excel exports are local device exports, not backend export endpoints.
+- CSV and Excel should use the same structure, based on `export.csv` in this repository.
+- LINS export is also required; the exact structure still needs to be provided.
 
 ## Languages / Localization
 
@@ -201,6 +214,7 @@ Important distinction:
 
 - In the current iOS UI, positive control, animal control, and verification are marked after reading from the test record screen.
 - In the 5-port reader prototype, the scenario is selected earlier as part of the run-test flow. This also means that a negative positive control can be uploaded to the cloud. In the iOS app this is impossible as you can only label a test as a positive control when the resutl if positive. This is fine. 
+- In the 5-port reader, a failed positive control is still kept as a positive-control record and shown with a failed-state cross. Animal control follows the same runtime pattern with its own control type.
 - For the new device, follow the new device flow, not the legacy iOS UI sequence.
 
 ### Verification logic in iOS
@@ -215,9 +229,12 @@ OpenAPI is the contract reference, but it contains a wider surface than the impl
 
 For the 5-port documentation:
 
+- Prefer the production Swagger URL above as the primary endpoint reference when writing final endpoint examples.
 - Prefer the iOS app's minimal proven payload subset when documenting request examples.
 - Use `openapi.json` to verify field names, enums, and endpoint availability.
 - Only add extra OpenAPI fields to the spec when the 5-port requirements explicitly need them.
+- The local `openapi.json` is useful for schemas and endpoint names, but it should not be treated as authoritative for production server/auth configuration.
+- `DeviceHealth` is authenticated right now in production, but the target behavior for this project is to allow anonymous verification uploads as well. Document the target behavior and call out the server-side dependency where needed.
 
 ### Primary endpoints likely needed in the spec
 
@@ -228,8 +245,6 @@ For the 5-port documentation:
 - `GET /api/webapi/v2/Sites/{id}`
 - `GET /api/webapi/v2/Firmware/{type}/latest`
 - `POST /api/webapi/v2/GroupedTestRecords/{id}/comment`
-- `GET /api/webapi/v2/TestRecords/csv`
-- `GET /api/webapi/v2/TestRecords/excel`
 
 ### Useful grouped-test payload fields
 
@@ -292,36 +307,3 @@ When drafting `doc.docx`, include these supporting sections because they remove 
   - device-side annotation editing
   - GPS-based location upload
 - A dedicated section for quantitative tests, especially Aflatoxin-related behavior.
-
-
-
-curl -X 'POST' \
-  'https://milksafe.chr-hansen.com//api/webapi/v2/DeviceHealth' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "readerSerialNumber": "string",
-  "testDate": "2026-04-09T10:26:00.692Z",
-  "testDateOffset": "string",
-  "comments": "string",
-  "result": "Negative",
-  "readerData": "string",
-  "testTypeId": 0,
-  "operatorId": "string",
-  "substances": [
-    {
-      "substanceId": 0,
-      "level": 0,
-      "result": "Negative",
-      "readerResultReference": "string",
-      "intensity": 0
-    }
-  ],
-  "deviceType": "Portable",
-  "temperature": {
-    "measuredTemperature": 0,
-    "deviceTemperature": 0
-  },
-  "readerSoftwareVersion": "string",
-  "appVersion": "string"
-}'
