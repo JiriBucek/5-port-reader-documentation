@@ -131,6 +131,13 @@ Rules:
 - if QR scanning is disabled, the user selects the test type manually
 - if the scanned test type is not enabled for the site or local anonymous configuration, the device must show a warning and block the run
 
+Configuration field behavior:
+
+- when `Sample ID` is present in the configuration flow, it is the first data-entry field
+- if `Operator ID` is also present, completing `Sample ID` must move focus immediately to `Operator ID`
+- this auto-advance must happen both after scanner input and after manual keyboard entry confirmed with `Enter`
+- the user must not need to manually select `Operator ID` after completing `Sample ID`
+
 ## 7. Test Execution Rules
 
 ### 7.1 Available Run Types

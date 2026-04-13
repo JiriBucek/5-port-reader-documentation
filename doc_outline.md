@@ -76,6 +76,7 @@ Why this workflow:
 - local config for anonymous users
 - global QR setting
 - QR-prefilled type is not manually editable
+- sample ID completion auto-focuses operator ID in the configuration flow when both fields are shown
 
 ## 7. Test Execution Rules
 
