@@ -416,7 +416,7 @@ When the user later logs in:
 ### 13.3 Verification Records
 
 - upload through device-health flow
-- anonymous verification uploads use the new `DeviceHealth/anonymous` target endpoint
+- anonymous verification uploads use the `DeviceHealth/anonymous` endpoint
 - anonymous verification records are not reassigned after login
 
 ### 13.4 Factory Reset
@@ -435,19 +435,28 @@ When the user later logs in:
 
 Main endpoints expected for this device:
 
-- `GET /api/webapi/v2/Users/me`
-- `GET /api/webapi/v2/TestTypes`
-- `GET /api/webapi/v2/Sites/{id}`
-- `POST /api/webapi/v2/GroupedTestRecords`
-- `POST /api/webapi/v2/GroupedTestRecords/anonymous`
-- `POST /api/webapi/v2/DeviceHealth`
-- `POST /api/webapi/v2/DeviceHealth/anonymous` (planned backend extension)
-- `POST /api/webapi/v2/GroupedTestRecords/{id}/comment`
+- `GET /api/v2/users/me`
+- `GET /api/v2/TestTypes`
+- `GET /api/v2/Sites/{id}`
+- `GET /api/v2/Firmware/{type}/latest`
+- `POST /api/v2/GroupedTestRecords`
+- `POST /api/v2/GroupedTestRecords/anonymous`
+- `POST /api/v2/DeviceHealth`
+- `POST /api/v2/DeviceHealth/anonymous`
+- `POST /api/v2/GroupedTestRecords/{id}/comment`
+
+Path rule:
+
+- for the live MilkSafe app hosts, use the `/api/v2` path prefix
+- do not use `/api/webapi/v2` on those hosts
+- the current Swagger path naming does not match the live app-host path prefix
+- for `GET /api/v2/Firmware/{type}/latest`, use reader-type values such as `PortableReaderConnect` and `DesktopReader`
+- do not use device-type values such as `Portable` or `Desktop` in that firmware route
 
 Do not use:
 
-- deprecated single-record upload endpoints such as `POST /api/webapi/v2/TestRecords`
-- deprecated anonymous single-record upload endpoints such as `POST /api/webapi/v2/TestRecords/anonymous`
+- deprecated single-record upload endpoints such as `POST /api/v2/TestRecords`
+- deprecated anonymous single-record upload endpoints such as `POST /api/v2/TestRecords/anonymous`
 - this device must upload normal test results through grouped test upload only
 
 ### 14.2 Annotation
@@ -777,11 +786,11 @@ Recommended sequence:
 1. Authenticate with MilkSafe Cloud username and password for the same user type used in DRC and the mobile applications.
    That user type is `Operator`.
 2. Store the authenticated session/token.
-3. Call `GET /api/webapi/v2/Users/me`.
-4. Call `GET /api/webapi/v2/TestTypes` to obtain the full list of test types.
-5. Use the user/site context from `GET /api/webapi/v2/Users/me` to call `GET /api/webapi/v2/Sites/{id}` and obtain the site's test type configuration.
+3. Call `GET /api/v2/users/me`.
+4. Call `GET /api/v2/TestTypes` to obtain the full list of test types.
+5. Use the user/site context from `GET /api/v2/users/me` to call `GET /api/v2/Sites/{id}` and obtain the site's test type configuration.
 6. Cache the full test type list and the effective site configuration locally, including `measurementMethod` and `quantitativeRange` for quantitative test types.
-7. After successful login, move cached anonymous grouped test records into the logged-in queue, clear their remote group IDs, and reupload them through `POST /api/webapi/v2/GroupedTestRecords`.
+7. After successful login, move cached anonymous grouped test records into the logged-in queue, clear their remote group IDs, and reupload them through `POST /api/v2/GroupedTestRecords`.
 
 Important:
 
@@ -791,7 +800,7 @@ Important:
 
 ### 20.3 Grouped Test Upload Example
 
-Use `POST /api/webapi/v2/GroupedTestRecords`.
+Use `POST /api/v2/GroupedTestRecords`.
 
 Implementation notes:
 
@@ -800,11 +809,12 @@ Implementation notes:
 - do not upload test records one by one as they are produced
 - if the first test is negative, upload the group immediately because the flow is complete
 - if confirmation is required, keep the records locally and upload only after the user aborts or after the final result is known
-- do not use deprecated `POST /api/webapi/v2/TestRecords` or `POST /api/webapi/v2/TestRecords/anonymous` for this device
+- do not use deprecated `POST /api/v2/TestRecords` or `POST /api/v2/TestRecords/anonymous` for this device
 - the example below follows the minimum payload pattern already used by the mobile applications
 - `testDate` should include the local timezone offset in the timestamp, for example `2026-04-09T10:26:00+02:00`
 - if `testDateOffset` is sent, it must match the offset embedded in `testDate`
-- use `POST /api/webapi/v2/GroupedTestRecords/{id}/comment` for group comments when comments are added after the group already exists
+- use `POST /api/v2/GroupedTestRecords/{id}/comment` for group comments when comments are added after the group already exists
+- the comment request body is a raw JSON string, for example `"Operator note"`
 
 ```json
 {
@@ -812,24 +822,74 @@ Implementation notes:
   "testRecords": [
     {
       "testDate": "2026-04-09T10:26:00+02:00",
-      "readerSerialNumber": "5PR-000123",
+      "readerSerialNumber": "PR22050201",
       "route": "SAMPLE-182",
       "result": "Positive",
-      "testTypeId": 101,
+      "testTypeId": 3,
       "operatorId": "OP-17",
       "substances": [
         {
-          "substanceId": 1,
+          "substanceId": 3,
           "level": 0.42,
           "result": "Positive",
+          "readerResultReference": "T1"
+        },
+        {
+          "substanceId": 4,
+          "level": 0.18,
+          "result": "Negative",
+          "readerResultReference": "T1"
+        },
+        {
+          "substanceId": 5,
+          "level": 0.15,
+          "result": "Negative",
+          "readerResultReference": "T1"
+        },
+        {
+          "substanceId": 7,
+          "level": 0.10,
+          "result": "Negative",
           "readerResultReference": "T1"
         }
       ],
       "annotation": "Original",
-      "manufacturingDate": "2026-01-15",
-      "batchNumber": "250428E002",
-      "rawQR": "05250428E002002627",
-      "cassetteId": "002627",
+      "appVersion": "1.0.0"
+    },
+    {
+      "testDate": "2026-04-09T10:31:00+02:00",
+      "readerSerialNumber": "PR22050201",
+      "route": "SAMPLE-182",
+      "result": "Positive",
+      "testTypeId": 3,
+      "operatorId": "OP-17",
+      "substances": [
+        {
+          "substanceId": 3,
+          "level": 0.43,
+          "result": "Positive",
+          "readerResultReference": "T2"
+        },
+        {
+          "substanceId": 4,
+          "level": 0.16,
+          "result": "Negative",
+          "readerResultReference": "T2"
+        },
+        {
+          "substanceId": 5,
+          "level": 0.14,
+          "result": "Negative",
+          "readerResultReference": "T2"
+        },
+        {
+          "substanceId": 7,
+          "level": 0.11,
+          "result": "Negative",
+          "readerResultReference": "T2"
+        }
+      ],
+      "annotation": "Confirmation",
       "appVersion": "1.0.0"
     }
   ]
@@ -838,7 +898,7 @@ Implementation notes:
 
 ### 20.4 Anonymous Grouped Upload Rules
 
-Use `POST /api/webapi/v2/GroupedTestRecords/anonymous`.
+Use `POST /api/v2/GroupedTestRecords/anonymous`.
 
 Rules:
 
@@ -854,7 +914,7 @@ Rules:
 
 ### 20.5 Verification Upload Example
 
-Use `POST /api/webapi/v2/DeviceHealth`.
+Use `POST /api/v2/DeviceHealth`.
 
 Implementation notes:
 
@@ -862,6 +922,8 @@ Implementation notes:
 - `substances[*].intensity` is part of the verification payload
 - `testDate` should include the local timezone offset in the timestamp, for example `2026-04-09T10:26:00+02:00`
 - if `testDateOffset` is sent, it must match the offset embedded in `testDate`
+- `appVersion` must not exceed 20 characters
+- `readerSoftwareVersion` must not exceed 20 characters
 - pass/fail is determined by the verification rules in this document, not only by HTTP success
 
 ```json
@@ -870,7 +932,6 @@ Implementation notes:
   "testDate": "2026-04-09T10:26:00+02:00",
   "comments": "Scheduled verification",
   "result": "Negative",
-  "testTypeId": 0,
   "operatorId": "OP-17",
   "substances": [
     {
@@ -891,18 +952,17 @@ Implementation notes:
 }
 ```
 
-### 20.6 Planned Anonymous Verification Endpoint
+### 20.6 Anonymous Verification Endpoint
 
-Target behavior:
+Use `POST /api/v2/DeviceHealth/anonymous`.
 
-- use `POST /api/webapi/v2/DeviceHealth/anonymous`
-- use the same payload structure as `POST /api/webapi/v2/DeviceHealth`
+- use the same payload structure as `POST /api/v2/DeviceHealth`
 - upload anonymous verification records there
 - do not reassign anonymous verification records after login
 
-Dependency:
+Important:
 
-- this endpoint is a planned backend extension and is not yet present in the current Swagger
+- this endpoint is live on the app host even though it is not present in the current Swagger
 
 ### 20.7 Local Export Notes
 

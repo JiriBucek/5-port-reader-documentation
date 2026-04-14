@@ -184,8 +184,8 @@ These are reference behaviors from the iOS app. Reuse them where they match the 
 ### Grouped test upload and retry
 
 - The iOS app uploads grouped flows, not just isolated records, via:
-  - `POST /api/webapi/v2/GroupedTestRecords`
-  - `POST /api/webapi/v2/GroupedTestRecords/anonymous`
+  - `POST /api/v2/GroupedTestRecords`
+  - `POST /api/v2/GroupedTestRecords/anonymous`
 - The sync engine retries unsynced groups every 60 seconds.
 - Anonymous upload in iOS changes some fields:
   - `route` becomes `nil`
@@ -240,22 +240,27 @@ For the 5-port documentation:
 - Use `openapi.json` to verify field names, enums, and endpoint availability.
 - Only add extra OpenAPI fields to the spec when the 5-port requirements explicitly need them.
 - The local `openapi.json` is useful for schemas and endpoint names, but it should not be treated as authoritative for production server/auth configuration.
-- `DeviceHealth` is authenticated right now in production, but the target behavior for this project is to allow anonymous verification uploads as well. Document the target behavior and call out the server-side dependency where needed.
+- Anonymous verification uploads are live on the app host endpoint `POST /api/v2/DeviceHealth/anonymous` even though the current Swagger does not show that endpoint.
 
 ### Primary endpoints likely needed in the spec
 
-- `POST /api/webapi/v2/GroupedTestRecords`
-- `POST /api/webapi/v2/GroupedTestRecords/anonymous`
-- `GET /api/webapi/v2/TestTypes`
-- `GET /api/webapi/v2/Users/me`
-- `GET /api/webapi/v2/Sites/{id}`
-- `GET /api/webapi/v2/Firmware/{type}/latest`
-- `POST /api/webapi/v2/GroupedTestRecords/{id}/comment`
+For the live MilkSafe app hosts, use the `/api/v2` path prefix rather than `/api/webapi/v2`.
+For `GET /api/v2/Firmware/{type}/latest`, current live accepted values include `PortableReaderConnect` and `DesktopReader`; `Portable` and `Desktop` are not valid route values.
+
+- `POST /api/v2/GroupedTestRecords`
+- `POST /api/v2/GroupedTestRecords/anonymous`
+- `POST /api/v2/DeviceHealth`
+- `POST /api/v2/DeviceHealth/anonymous`
+- `GET /api/v2/TestTypes`
+- `GET /api/v2/users/me`
+- `GET /api/v2/Sites/{id}`
+- `GET /api/v2/Firmware/{type}/latest`
+- `POST /api/v2/GroupedTestRecords/{id}/comment`
 
 ### Endpoints not to use for the 5-port reader
 
-- `POST /api/webapi/v2/TestRecords`
-- `POST /api/webapi/v2/TestRecords/anonymous`
+- `POST /api/v2/TestRecords`
+- `POST /api/v2/TestRecords/anonymous`
 
 These old single-record uploads are not the intended integration path for the new device.
 
