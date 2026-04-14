@@ -440,7 +440,47 @@ Do not use:
 - deprecated anonymous single-record upload endpoints such as `POST /api/webapi/v2/TestRecords/anonymous`
 - this device must upload normal test results through grouped test upload only
 
-### 14.2 Payload Strategy
+### 14.2 Annotation
+
+Set `annotation` on each test record included in grouped test upload.
+
+Use these annotation values in 5-Port Reader grouped test records:
+
+- `Original`
+- `Confirmation`
+- `SecondConfirmation`
+- `PositiveControl`
+- `AnimalControl`
+
+Normal flow:
+
+- the first test record in a flow uses `Original`
+- the second test record in the same flow uses `Confirmation`
+- the third test record in the same flow uses `SecondConfirmation`
+- if the user stops after the first positive test, upload the single existing test record as `Original`
+- if the user stops after the second test, upload the two existing test records as `Original` and `Confirmation`
+
+Control flow:
+
+- positive control uploads use `PositiveControl`
+- animal control uploads use `AnimalControl`
+- a failed positive control still uses `PositiveControl`
+- a failed animal control still uses `AnimalControl`
+
+Do not use these annotation values in the 5-Port Reader grouped test upload flow:
+
+- `Rejected`
+- `Deleted`
+- `Verification`
+
+Verification rule:
+
+- do not upload verification through grouped test records
+- do not send grouped test records with `Verification` annotation
+- verification-through-test-record annotation is deprecated for this device
+- upload verification through the device-health endpoints only
+
+### 14.3 Payload Strategy
 
 Use the minimum payload that matches the required device behavior.
 
@@ -498,7 +538,7 @@ For verification upload:
 - `readerSoftwareVersion`
 - `appVersion`
 
-### 14.3 Mobile Application Reference
+### 14.4 Mobile Application Reference
 
 Where backend behavior is shared, follow the same implementation pattern as the current mobile applications for:
 

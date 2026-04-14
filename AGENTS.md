@@ -291,6 +291,8 @@ From `CreateGroupedTestRecordCommand` and the iOS upload model, the main fields 
 
 - Keep the document concise and implementation-oriented.
 - Do not make it sound like AI
+- Write the document as direct implementation guidance for developers building the 5-port reader software.
+- Do not narrate source lookup inside the specification. Do not write phrases such as "this is what was found in iOS" or similar source-reporting language. Resolve the rule first, then document the resulting requirement directly.
 - Prefer short sections, bullets, and brief explanatory paragraphs.
 - Include diagrams only where they remove ambiguity.
 - Include endpoint examples and payload examples only for the fields developers actually need.
