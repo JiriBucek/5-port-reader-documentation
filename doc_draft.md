@@ -79,6 +79,8 @@ Anonymous behavior:
 - grouped test records upload through the anonymous grouped-test endpoint in obfuscated form
 - reader serial number is still uploaded and is not obfuscated
 - anonymous grouped test records are shown in device history as `not synced`
+- do not display a backend group ID for anonymous grouped test records
+- only display a group ID for logged-in synced grouped test records
 
 Anonymous reassignment behavior:
 
@@ -339,6 +341,8 @@ Device behavior:
 - history only shows data taken on this device
 - grouped results are cached locally and uploaded later when connectivity is available
 - history is not downloaded back from cloud after reset
+- anonymous grouped test records should show `not synced` and should not show a group ID
+- show group ID only for logged-in grouped test records that have synced successfully
 
 ### 12.2 Verification History
 
@@ -389,6 +393,8 @@ Verification detail should include:
 - upload normally to the user's site
 - retry upload when connectivity becomes available
 - recommended retry cadence for unsynced grouped test records is every 60 seconds
+- display a group ID only after the grouped record has synced successfully
+- if a logged-in grouped record is still unsynced, do not display a group ID yet
 
 ### 13.2 Anonymous Grouped Test Records
 
@@ -396,6 +402,9 @@ Verification detail should include:
 - upload through anonymous grouped-test endpoint in obfuscated form
 - show as `not synced` in device history
 - keep reader serial number un-obfuscated
+- do not display a backend-assigned group ID for anonymous grouped test records, even if one exists in backend
+- for anonymous grouped test records, the UI state is `not synced`
+- only logged-in synced grouped test records should display a group ID
 
 When the user later logs in:
 
@@ -493,11 +502,10 @@ For grouped test upload, focus on:
 Per test record:
 
 - `testDate`
-- `testDateOffset`
+- `testDateOffset` if sent
 - `readerSerialNumber`
 - `route`
 - `result`
-- `readerData` if used
 - `testTypeId`
 - `operatorId`
 - `substances`
@@ -516,30 +524,25 @@ Result value rule:
 - if a fetched backend record contains `WeakPositive`, decode and handle it as `Positive`
 - device-local history only shows records created on this device, so normal 5-Port Reader history should not create or show new `WeakPositive` records
 
-`readerData` rule:
-
-- `readerData` is optional in grouped test upload
-- because the 5-Port Reader runs the software on the reader itself, `readerData` is not required for reader-to-app communication in the way it was in the mobile flow
-- the device may omit `readerData`
-- if the implementation chooses to send `readerData`, send the raw device output encoded to base64
-- do not transform it into a custom JSON structure before upload
-- treat it as opaque optional device output for traceability, diagnostics, or future reprocessing
+Do not upload `readerData`.
 
 Date/time rule:
 
+- `testDate` is the test timestamp in ISO 8601 date-time format and should include the timezone offset in the timestamp itself, for example `2026-04-09T10:26:00+02:00`
 - `testDateOffset` is the local timezone offset configured on the device at the moment of testing, for example `+02:00` or `-05:00`
-- `testDate` is the test timestamp
-- always include `testDateOffset` together with `testDate`
+- the current mobile application grouped upload format sends the offset inside `testDate`
+- the current API schemas also include a separate optional `testDateOffset` field
+- if the device sends `testDateOffset`, it must match the offset already embedded in `testDate`
+- do not send `testDate` as `Z` together with a different local `testDateOffset`
 - this is required so the cloud can display the test time correctly in the timezone in which the test was taken
 
 For verification upload:
 
 - `readerSerialNumber`
 - `testDate`
-- `testDateOffset`
+- `testDateOffset` if sent
 - `comments`
 - `result`
-- `readerData` if used
 - `operatorId`
 - `substances`
 - `deviceType`
@@ -596,7 +599,8 @@ Date/time:
 - the user sets date, time, and timezone
 - display date and time in the device using the user-selected local timezone
 - always upload timestamps with timezone data
-- always send the correct `testDateOffset` that matches the timezone configured on the device, for example `+02:00`
+- send `testDate` with the correct local timezone offset embedded in the timestamp, for example `2026-04-09T10:26:00+02:00`
+- if `testDateOffset` is also sent, it must match the offset embedded in `testDate`
 - backend/cloud must receive timezone information so test times can be shown correctly in the timezone in which the test was taken
 
 Software update:
@@ -643,6 +647,19 @@ Rules:
 - quantitative/strip flows may require manual type selection
 - Aflatoxin flow should follow the current desktop-reader approach
 - Aflatoxin calibration curve must be loadable through ID chip or QR scanning
+- for quantitative test types, fetch and cache `measurementMethod` and `quantitativeRange` from the test type configuration
+- `quantitativeRange` contains `measurableRangeMin`, `measurableRangeMax`, `negativeRangeMin`, and `negativeRangeMax`
+- do not hardcode quantitative limits in the device
+- use the fetched measurable range to format the displayed quantitative value
+- if the measured value is within the inclusive measurable range, display the formatted numeric value
+- if the measured value is below `measurableRangeMin`, display `< {measurableRangeMin}`
+- if the measured value is above `measurableRangeMax`, display `> {measurableRangeMax}`
+- examples: `< 15`, `> 150`
+- use normal device locale number formatting for in-range values
+- the value-formatting rule above applies to quantitative result display in test detail, history detail, print output, and any other screen where the numeric level is shown
+- the positive/negative result label still comes from the test result itself; the measurable range only changes how the numeric level is displayed
+- fetch and store `negativeRangeMin` and `negativeRangeMax` together with the measurable range as part of the quantitative test type configuration
+- if a quantitative test type is missing `quantitativeRange`, fall back to displaying the formatted numeric value without the `<` or `>` threshold substitution
 
 ## 18. Export, Printing, and LIMS
 
@@ -754,14 +771,14 @@ Recommended sequence:
 3. Call `GET /api/webapi/v2/Users/me`.
 4. Use the returned user/site context to call `GET /api/webapi/v2/TestTypes`.
 5. Call `GET /api/webapi/v2/Sites/{id}` and apply the site's enabled test types.
-6. Cache the full test type list and the effective site configuration locally.
+6. Cache the full test type list and the effective site configuration locally, including `measurementMethod` and `quantitativeRange` for quantitative test types.
 7. After successful login, move cached anonymous grouped test records into the logged-in queue, clear their remote group IDs, and reupload them through `POST /api/webapi/v2/GroupedTestRecords`.
 
 Important:
 
 - do not reassign anonymous verification records after login
 - if the device stays anonymous, keep using local test type configuration plus anonymous upload behavior
-- when uploading tests or verification, always include the correct timezone offset from the device configuration
+- when uploading tests or verification, always include timezone data that matches the device configuration
 
 ### 20.3 Grouped Test Upload Example
 
@@ -776,9 +793,8 @@ Implementation notes:
 - if confirmation is required, keep the records locally and upload only after the user aborts or after the final result is known
 - do not use deprecated `POST /api/webapi/v2/TestRecords` or `POST /api/webapi/v2/TestRecords/anonymous` for this device
 - the example below follows the minimum payload pattern already used by the mobile applications
-- `readerData` is optional
-- if `readerData` is sent, it should be base64-encoded raw device output
-- `testDateOffset` must match the timezone configured on the device, for example `+02:00`
+- `testDate` should include the local timezone offset in the timestamp, for example `2026-04-09T10:26:00+02:00`
+- if `testDateOffset` is sent, it must match the offset embedded in `testDate`
 - use `POST /api/webapi/v2/GroupedTestRecords/{id}/comment` for group comments when comments are added after the group already exists
 
 ```json
@@ -786,8 +802,7 @@ Implementation notes:
   "appVersion": "1.0.0",
   "testRecords": [
     {
-      "testDate": "2026-04-09T10:26:00Z",
-      "testDateOffset": "+02:00",
+      "testDate": "2026-04-09T10:26:00+02:00",
       "readerSerialNumber": "5PR-000123",
       "route": "SAMPLE-182",
       "result": "Positive",
@@ -819,17 +834,14 @@ Use `POST /api/webapi/v2/GroupedTestRecords/anonymous`.
 Rules:
 
 - keep the full local values for route/sample ID, operator ID, and user-related linkage so the group can later be reassigned after login
-- do not upload route/sample ID, operator identity, or user identity in plain form
+- in the anonymous grouped upload payload, omit `customerId`, `siteId`, `route`, and `operatorId`
+- do not send user-identity fields in the anonymous grouped upload payload
 - upload `readerSerialNumber` in plain form
 - upload empty location
 - keep the local history state as `not synced`
+- do not display any backend-assigned group ID for anonymous grouped test records
+- if backend silently assigns a group ID on anonymous upload, ignore it for device UI
 - when the user later logs in, reupload the cached groups through the normal grouped endpoint
-
-Reference note:
-
-- the current mobile applications use the anonymous grouped endpoint with anonymous field transformation
-- in the mobile applications, `route` is removed and `operatorId` is replaced with a device identifier
-- the 5-Port Reader should follow the same anonymous-endpoint pattern, with the product rules in this document taking precedence
 
 ### 20.5 Verification Upload Example
 
@@ -838,17 +850,15 @@ Use `POST /api/webapi/v2/DeviceHealth`.
 Implementation notes:
 
 - send one payload per verification run
-- `readerData` is optional
-- if `readerData` is sent, it should be base64-encoded raw device output
 - `substances[*].intensity` is part of the verification payload
-- `testDateOffset` must match the timezone configured on the device, for example `+02:00`
+- `testDate` should include the local timezone offset in the timestamp, for example `2026-04-09T10:26:00+02:00`
+- if `testDateOffset` is sent, it must match the offset embedded in `testDate`
 - pass/fail is determined by the verification rules in this document, not only by HTTP success
 
 ```json
 {
   "readerSerialNumber": "5PR-000123",
-  "testDate": "2026-04-09T10:26:00Z",
-  "testDateOffset": "+02:00",
+  "testDate": "2026-04-09T10:26:00+02:00",
   "comments": "Scheduled verification",
   "result": "Negative",
   "testTypeId": 0,
@@ -885,18 +895,7 @@ Dependency:
 
 - this endpoint is a planned backend extension and is not yet present in the current Swagger
 
-### 20.7 ReaderData
-
-`readerData` is optional in the current grouped test upload and verification upload API schemas.
-
-Implementation rule:
-
-- the 5-Port Reader may omit `readerData`
-- if BioEasy finds it useful, the device may send `readerData` for backend traceability, diagnostics, or future reprocessing
-- if sent, `readerData` must be the raw device output encoded to base64
-- do not replace it with parsed ratios, JSON objects, or debug strings
-
-### 20.8 Local Export Notes
+### 20.7 Local Export Notes
 
 - CSV and Excel are local device exports, not backend report downloads
 - use the exact column order and header names from `export.csv`

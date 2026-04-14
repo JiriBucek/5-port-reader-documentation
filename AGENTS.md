@@ -115,7 +115,7 @@ Important reference areas:
 - Known backend/app environments are development, staging, pre-production, and production.
 - Pre-production is the recommended main testing environment and product direction says it is refreshed from production on the first day of each month.
 - Authentication in the mobile application uses Azure B2C ROPC token exchange, stores both access and refresh tokens locally, and refreshes access on `401` using the refresh token.
-- `readerData` in mobile-app uploads is the raw reader byte response stored as `Data` and uploaded as a base64 string; it should be treated as opaque raw device output.
+- Do not upload `readerData` from the 5-port reader.
 - Date and time must always be shown on the device in the user-configured local timezone, and uploads must include the correct timezone offset so cloud views can display the correct local test time.
 
 ## Languages / Localization
@@ -275,7 +275,6 @@ From `CreateGroupedTestRecordCommand` and the iOS upload model, the main fields 
   - `readerSerialNumber`
   - `route`
   - `result`
-  - `readerData`
   - `testTypeId`
   - `operatorId`
   - `substances`
