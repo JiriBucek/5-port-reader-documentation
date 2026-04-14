@@ -56,7 +56,9 @@ Design usage rules:
 
 ### 5.1 Logged-In Mode
 
-The same user type that is used to log in to DRC and MobileLabs should also log in to this device.
+The same user type that is used to log in to DRC and the mobile applications should also log in to this device.
+
+That user type is `Operator`.
 
 These users and their passwords are created for the site in MilkSafe Cloud web.
 
@@ -253,7 +255,7 @@ Controls are single-test flows and do not use confirmation flow.
 - no confirmation flow
 - show the control status directly in the UI
 - if the result is positive, show the success state
-- if the result is not positive, show the failed state with a cross
+- if the result is not positive, show the failed state with a cross. This is opposite to the standard tests where a cross icon is displayed for a positive test. The Positive control test is expected to be positive, not negative.
 - do not trigger verification or any additional flow from this result
 
 ### 10.2 Animal Control
@@ -276,37 +278,30 @@ It is separate from the normal test flow.
 
 - the user may choose which slot to use for verification
 - slot 1 is the default
-- slot choice is not saved anywhere
-- slot choice has no backend meaning
+- slot choice can be optionally saved locally in the reader
+- slot choice has no backend meaning, there is not backend endpoint key to upload the slot number to
 
 ### 11.3 Pass Criteria
 
 Verification includes:
 
 - ratio measurement
-- measured temperature
-- device temperature
-- one light-intensity number
+- measured temperature vs device temperature comparison
+- light-intensity - as one number
 
 Pass rules:
 
 - every measured ratio must be within `0.9` to `1.1`
 - measured temperature must be within `±2 C`
-- light intensity must be greater than `500000`
+- light intensity must be greater than `500000` units
 
 ### 11.4 Verification Upload
 
-Verification uses the device-health flow, not grouped test upload.
+Verification uses the device-health endpoint, not grouped test endpoint.
 
-Current and target backend behavior:
+- `DeviceHealth` endpoint is authenticated - use this one for the logged in users
+- Use `DeviceHealth/anonymous` for anonymous / logged out users. This endpoint does not require authentication
 
-- current production `DeviceHealth` is authenticated
-- backend will be extended
-- a new endpoint will be added: `DeviceHealth/anonymous`
-- it will use the same payload as `DeviceHealth`
-- it will be used for anonymous verification upload, similar to anonymous test-record/group upload
-
-This new endpoint is not yet in the current Swagger but should be treated as planned target behavior for implementation.
 
 ### 11.5 Verification History
 
@@ -316,6 +311,7 @@ This new endpoint is not yet in the current Swagger but should be treated as pla
 - verification records are uploaded to backend
 - after factory reset, local verification history is lost
 - uploaded verification records remain in backend
+- there is no way to fetch the verification history from the backend. You only show the locally stored verifications and upload them to the backend but you do not download the history of verifications
 
 ### 11.6 Verification Threshold
 
@@ -392,6 +388,7 @@ Verification detail should include:
 - cache locally
 - upload normally to the user's site
 - retry upload when connectivity becomes available
+- recommended retry cadence for unsynced grouped test records is every 60 seconds
 
 ### 13.2 Anonymous Grouped Test Records
 
@@ -500,7 +497,7 @@ Per test record:
 - `readerSerialNumber`
 - `route`
 - `result`
-- `readerData`
+- `readerData` if used
 - `testTypeId`
 - `operatorId`
 - `substances`
@@ -511,16 +508,28 @@ Per test record:
 - `cassetteId`
 - `appVersion`
 
+Result value rule:
+
+- newly created 5-Port Reader test records should only use `Positive` and `Negative`
+- do not create new records with `WeakPositive`
+- `WeakPositive` is a deprecated backend value and should only be supported in decoding logic for old records if such records are ever fetched from cloud
+- if a fetched backend record contains `WeakPositive`, decode and handle it as `Positive`
+- device-local history only shows records created on this device, so normal 5-Port Reader history should not create or show new `WeakPositive` records
+
 `readerData` rule:
 
-- `readerData` is the raw byte response from the reader, encoded to base64 for upload
+- `readerData` is optional in grouped test upload
+- because the 5-Port Reader runs the software on the reader itself, `readerData` is not required for reader-to-app communication in the way it was in the mobile flow
+- the device may omit `readerData`
+- if the implementation chooses to send `readerData`, send the raw device output encoded to base64
 - do not transform it into a custom JSON structure before upload
-- treat it as opaque raw device output
+- treat it as opaque optional device output for traceability, diagnostics, or future reprocessing
 
 Date/time rule:
 
-- `testDate` and `testDateOffset` must represent the device-local date/time and the configured timezone offset at the time of testing
-- do not upload timestamps without timezone context
+- `testDateOffset` is the local timezone offset configured on the device at the moment of testing, for example `+02:00` or `-05:00`
+- `testDate` is the test timestamp
+- always include `testDateOffset` together with `testDate`
 - this is required so the cloud can display the test time correctly in the timezone in which the test was taken
 
 For verification upload:
@@ -530,7 +539,7 @@ For verification upload:
 - `testDateOffset`
 - `comments`
 - `result`
-- `readerData`
+- `readerData` if used
 - `operatorId`
 - `substances`
 - `deviceType`
@@ -739,7 +748,8 @@ Login and configuration load sequence:
 
 Recommended sequence:
 
-1. Authenticate with MilkSafe Cloud username and password for the same user type used in DRC and MobileLabs.
+1. Authenticate with MilkSafe Cloud username and password for the same user type used in DRC and the mobile applications.
+   That user type is `Operator`.
 2. Store the authenticated session/token.
 3. Call `GET /api/webapi/v2/Users/me`.
 4. Use the returned user/site context to call `GET /api/webapi/v2/TestTypes`.
@@ -766,8 +776,9 @@ Implementation notes:
 - if confirmation is required, keep the records locally and upload only after the user aborts or after the final result is known
 - do not use deprecated `POST /api/webapi/v2/TestRecords` or `POST /api/webapi/v2/TestRecords/anonymous` for this device
 - the example below follows the minimum payload pattern already used by the mobile applications
-- `readerData` should be base64-encoded reader output
-- `testDateOffset` must match the timezone configured on the device
+- `readerData` is optional
+- if `readerData` is sent, it should be base64-encoded raw device output
+- `testDateOffset` must match the timezone configured on the device, for example `+02:00`
 - use `POST /api/webapi/v2/GroupedTestRecords/{id}/comment` for group comments when comments are added after the group already exists
 
 ```json
@@ -780,7 +791,6 @@ Implementation notes:
       "readerSerialNumber": "5PR-000123",
       "route": "SAMPLE-182",
       "result": "Positive",
-      "readerData": "<base64-reader-data>",
       "testTypeId": 101,
       "operatorId": "OP-17",
       "substances": [
@@ -828,9 +838,10 @@ Use `POST /api/webapi/v2/DeviceHealth`.
 Implementation notes:
 
 - send one payload per verification run
-- `readerData` should be base64-encoded reader output
+- `readerData` is optional
+- if `readerData` is sent, it should be base64-encoded raw device output
 - `substances[*].intensity` is part of the verification payload
-- `testDateOffset` must match the timezone configured on the device
+- `testDateOffset` must match the timezone configured on the device, for example `+02:00`
 - pass/fail is determined by the verification rules in this document, not only by HTTP success
 
 ```json
@@ -840,7 +851,6 @@ Implementation notes:
   "testDateOffset": "+02:00",
   "comments": "Scheduled verification",
   "result": "Negative",
-  "readerData": "<base64-reader-data>",
   "testTypeId": 0,
   "operatorId": "OP-17",
   "substances": [
@@ -877,30 +887,13 @@ Dependency:
 
 ### 20.7 ReaderData
 
-`readerData` should be documented and handled as raw reader output.
-
-Current mobile application behavior:
-
-- the reader returns raw measurement bytes as `[UInt8]`
-- the application stores those exact raw bytes in `readerData`
-- upload serializes `readerData` as a base64 string
-
-Qualitative flow details from the current parser:
-
-- the parser strips the first 2 bytes and the last 4 bytes from the raw response
-- the remaining payload is processed in 7-byte sets
-- each set contains position, height, and area values
-- the app uses those parsed values to calculate ratios and results, but the uploaded `readerData` remains the original raw bytes
-
-Quantitative flow details from the current parser:
-
-- the app still stores the original raw bytes in `readerData`
-- it also interprets the response as UTF-8 text split by `#` for app-side parsing of quantitative result data
-- even in this case, the upload field should still contain the original raw bytes encoded to base64
+`readerData` is optional in the current grouped test upload and verification upload API schemas.
 
 Implementation rule:
 
-- treat `readerData` as opaque raw device output for backend traceability and future reprocessing
+- the 5-Port Reader may omit `readerData`
+- if BioEasy finds it useful, the device may send `readerData` for backend traceability, diagnostics, or future reprocessing
+- if sent, `readerData` must be the raw device output encoded to base64
 - do not replace it with parsed ratios, JSON objects, or debug strings
 
 ### 20.8 Local Export Notes
