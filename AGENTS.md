@@ -78,7 +78,7 @@ Important reference areas:
 - Anonymous users should be able to enable or disable test types locally on the device.
 - In anonymous mode, test records still capture the entered sample ID and operator ID locally on the device.
 - Test groups are cached locally and uploaded when connectivity is available.
-- Test history is local to the device; product direction currently says history is uploaded but not downloaded back after reset.
+- Grouped test history may optionally be downloaded back after reset, but only records created on this device should be shown; do not restore grouped test records from other devices that used the same operator credentials.
 - Anonymous grouped test records are uploaded in obfuscated form through the anonymous endpoint and should appear in device history as `not synced`.
 - Anonymous grouped test records keep the reader serial number; that field is not obfuscated.
 - When the user later logs in on the same device, previously anonymous grouped test records should be reassigned to that user and uploaded normally to their site, mirroring the current iOS behavior.

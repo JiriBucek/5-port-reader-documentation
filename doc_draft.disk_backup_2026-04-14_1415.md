@@ -340,8 +340,7 @@ Device behavior:
 - records are shown within their groups/flows
 - history only shows data taken on this device
 - grouped results are cached locally and uploaded later when connectivity is available
-- grouped test history may optionally be downloaded back from cloud after a device reset, but only grouped test records created on this particular device may be shown
-- do not display test records recorded on a different device that may have used the same operator credentials
+- history is not downloaded back from cloud after reset
 - anonymous grouped test records should show `not synced` and should not show a group ID
 - show group ID only for logged-in grouped test records that have synced successfully
 
@@ -356,7 +355,6 @@ Device behavior:
 - the user can comment on the whole group/history item
 - comment presence should be indicated in grouped history
 - annotation editing on the device is out of scope
-- annotation editing can only be performed in the web console
 
 ### 12.4 Detail Screens
 
@@ -364,14 +362,14 @@ Test/control detail should include:
 
 - result
 - test type
-- date/time in the device timezone
+- date/time
 - user
 - operator ID
 - route / sample ID
 - upload status
-- measured substances and ratio values
-- port number, only cached locally on the device and not uploaded to backend
-- local light-intensity chart similar to DRC
+- measured substances and values
+- port number
+- local light-intensity chart
 
 Important:
 
@@ -425,9 +423,7 @@ When the user later logs in:
 - local verification history is removed
 - uploaded grouped test records remain in backend
 - uploaded verification records remain in backend
-- grouped test history may optionally be downloaded back after reset, but only records created on this device may be shown
-- do not restore grouped test records from other devices that used the same operator credentials
-- verification history is not restored back onto the device from backend
+- historical records are not restored back onto the device from backend
 
 ## 14. API Integration
 
@@ -587,7 +583,6 @@ Not password-protected:
 - Run verification
 - Load quant curve
 - About
-- Sound on/off
 
 Other settings/toggles:
 
@@ -596,7 +591,8 @@ Other settings/toggles:
 - Route / Sample ID on/off
 - Operator ID on/off
 - Incubator on/off
-- LIMS on/off. LIMS configuration is not yet specified and is left to BioEasy.
+- LIMS on/off
+- Sound on/off
 
 Date/time:
 
@@ -619,8 +615,6 @@ Software update:
 - BioEasy developers receive edit access
 - developers create the translation key structure
 - developers provide all English base strings
-- machine translation is used to translate the English base strings to all supported languages
-- translations are reviewed by human reviewers for every language
 - Tolgee exports are then adapted for device implementation
 
 Supported languages should match the current mobile applications unless changed later:
@@ -666,9 +660,6 @@ Rules:
 - the positive/negative result label still comes from the test result itself; the measurable range only changes how the numeric level is displayed
 - fetch and store `negativeRangeMin` and `negativeRangeMax` together with the measurable range as part of the quantitative test type configuration
 - if a quantitative test type is missing `quantitativeRange`, fall back to displaying the formatted numeric value without the `<` or `>` threshold substitution
-- keep the last 5 loaded calibration curves on the device and automatically remove older ones when new ones are loaded
-- when a quantitative test type is selected, the configuration must include calibration-curve selection
-- calibration-curve selection is only visible for quantitative test types
 
 ## 18. Export, Printing, and LIMS
 
@@ -749,7 +740,6 @@ Environment note:
 - pre-production is the main recommended testing environment for this project
 - pre-production mirrors production closely
 - production data is copied to pre-production on the first day of each month
-- this refresh overwrites pre-production data changes with production data
 
 ### 20.2 Authentication and Login Sequence
 
@@ -762,13 +752,14 @@ Login request:
 - token path: `/token`
 - required fields: `username`, `password`, `grant_type=password`, `scope=openid <client_id> offline_access`, `client_id`, `response_type=token id_token`
 
-Local device token behavior:
+Token behavior in the current mobile applications:
 
 - both `access_token` and `refresh_token` are stored locally
 - authenticated API requests use `Authorization: Bearer <access_token>`
 - if an authenticated request returns `401`, the client calls the same token endpoint with `grant_type=refresh_token`
 - the new access token and refresh token are stored again after refresh
 - practical behavior is a persistent session until logout, as long as token refresh continues to work
+- exact server-side token lifetime is not documented in this specification
 
 Login and configuration load sequence:
 
@@ -778,8 +769,8 @@ Recommended sequence:
    That user type is `Operator`.
 2. Store the authenticated session/token.
 3. Call `GET /api/webapi/v2/Users/me`.
-4. Call `GET /api/webapi/v2/TestTypes` to obtain the full list of test types.
-5. Use the user/site context from `GET /api/webapi/v2/Users/me` to call `GET /api/webapi/v2/Sites/{id}` and obtain the site's test type configuration.
+4. Use the returned user/site context to call `GET /api/webapi/v2/TestTypes`.
+5. Call `GET /api/webapi/v2/Sites/{id}` and apply the site's enabled test types.
 6. Cache the full test type list and the effective site configuration locally, including `measurementMethod` and `quantitativeRange` for quantitative test types.
 7. After successful login, move cached anonymous grouped test records into the logged-in queue, clear their remote group IDs, and reupload them through `POST /api/webapi/v2/GroupedTestRecords`.
 

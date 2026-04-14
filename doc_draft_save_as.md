@@ -79,8 +79,6 @@ Anonymous behavior:
 - grouped test records upload through the anonymous grouped-test endpoint in obfuscated form
 - reader serial number is still uploaded and is not obfuscated
 - anonymous grouped test records are shown in device history as `not synced`
-- do not display a backend group ID for anonymous grouped test records
-- only display a group ID for logged-in synced grouped test records
 
 Anonymous reassignment behavior:
 
@@ -340,10 +338,7 @@ Device behavior:
 - records are shown within their groups/flows
 - history only shows data taken on this device
 - grouped results are cached locally and uploaded later when connectivity is available
-- grouped test history may optionally be downloaded back from cloud after a device reset, but only grouped test records created on this particular device may be shown
-- do not display test records recorded on a different device that may have used the same operator credentials
-- anonymous grouped test records should show `not synced` and should not show a group ID
-- show group ID only for logged-in grouped test records that have synced successfully
+- history can be optionally downloaded back from cloud after a device reset. But in such a case you need to filter the grouped test records only for the ones recorded on this particular device. Do not display test records recorded on a different device that might have used the same operator credentials to upload the test records.
 
 ### 12.2 Verification History
 
@@ -355,8 +350,7 @@ Device behavior:
 - comments are group-level
 - the user can comment on the whole group/history item
 - comment presence should be indicated in grouped history
-- annotation editing on the device is out of scope
-- annotation editing can only be performed in the web console
+- annotation editing on the device is out of scope. Annotation editing can only be performed in the web console! 
 
 ### 12.4 Detail Screens
 
@@ -370,8 +364,8 @@ Test/control detail should include:
 - route / sample ID
 - upload status
 - measured substances and ratio values
-- port number, only cached locally on the device and not uploaded to backend
-- local light-intensity chart similar to DRC
+- port number - only cached locally, not upload to the backend
+- local light-intensity chart - similar to DRC
 
 Important:
 
@@ -395,8 +389,6 @@ Verification detail should include:
 - upload normally to the user's site
 - retry upload when connectivity becomes available
 - recommended retry cadence for unsynced grouped test records is every 60 seconds
-- display a group ID only after the grouped record has synced successfully
-- if a logged-in grouped record is still unsynced, do not display a group ID yet
 
 ### 13.2 Anonymous Grouped Test Records
 
@@ -404,9 +396,6 @@ Verification detail should include:
 - upload through anonymous grouped-test endpoint in obfuscated form
 - show as `not synced` in device history
 - keep reader serial number un-obfuscated
-- do not display a backend-assigned group ID for anonymous grouped test records, even if one exists in backend
-- for anonymous grouped test records, the UI state is `not synced`
-- only logged-in synced grouped test records should display a group ID
 
 When the user later logs in:
 
@@ -425,9 +414,7 @@ When the user later logs in:
 - local verification history is removed
 - uploaded grouped test records remain in backend
 - uploaded verification records remain in backend
-- grouped test history may optionally be downloaded back after reset, but only records created on this device may be shown
-- do not restore grouped test records from other devices that used the same operator credentials
-- verification history is not restored back onto the device from backend
+- historical records are not restored back onto the device from backend
 
 ## 14. API Integration
 
@@ -500,16 +487,16 @@ For grouped test upload, focus on:
 - `siteId`
 - `comments`
 - `appVersion`
-- `testRecords`
 - `testRecords` contains the full finished flow, not individual partial uploads
 
 Per test record:
 
 - `testDate`
-- `testDateOffset` if sent
+- `testDateOffset`
 - `readerSerialNumber`
 - `route`
 - `result`
+- `readerData`
 - `testTypeId`
 - `operatorId`
 - `substances`
@@ -528,25 +515,26 @@ Result value rule:
 - if a fetched backend record contains `WeakPositive`, decode and handle it as `Positive`
 - device-local history only shows records created on this device, so normal 5-Port Reader history should not create or show new `WeakPositive` records
 
-Do not upload `readerData`.
+`readerData` rule:
+
+- `readerData` is the raw byte response from the reader, encoded to base64 for upload
+- do not transform it into a custom JSON structure before upload
+- treat it as opaque raw device output
 
 Date/time rule:
 
-- `testDate` is the test timestamp in ISO 8601 date-time format and should include the timezone offset in the timestamp itself, for example `2026-04-09T10:26:00+02:00`
-- `testDateOffset` is the local timezone offset configured on the device at the moment of testing, for example `+02:00` or `-05:00`
-- the current mobile application grouped upload format sends the offset inside `testDate`
-- the current API schemas also include a separate optional `testDateOffset` field
-- if the device sends `testDateOffset`, it must match the offset already embedded in `testDate`
-- do not send `testDate` as `Z` together with a different local `testDateOffset`
+- `testDate` and `testDateOffset` must represent the device-local date/time and the configured timezone offset at the time of testing
+- do not upload timestamps without timezone context
 - this is required so the cloud can display the test time correctly in the timezone in which the test was taken
 
 For verification upload:
 
 - `readerSerialNumber`
 - `testDate`
-- `testDateOffset` if sent
+- `testDateOffset`
 - `comments`
 - `result`
+- `readerData`
 - `operatorId`
 - `substances`
 - `deviceType`
@@ -581,6 +569,9 @@ Password-protected:
 - Temperature
 - Verification history
 - Internet connection
+- LIMS - LIMS configuration needs to be specified yet. We leave this up to BioEasy and their judgement.
+- Software update
+
 
 Not password-protected:
 
@@ -589,28 +580,15 @@ Not password-protected:
 - About
 - Sound on/off
 
-Other settings/toggles:
-
-- Printer on/off
-- Comments on/off
-- Route / Sample ID on/off
-- Operator ID on/off
-- Incubator on/off
-- LIMS on/off. LIMS configuration is not yet specified and is left to BioEasy.
 
 Date/time:
 
 - the user sets date, time, and timezone
 - display date and time in the device using the user-selected local timezone
 - always upload timestamps with timezone data
-- send `testDate` with the correct local timezone offset embedded in the timestamp, for example `2026-04-09T10:26:00+02:00`
-- if `testDateOffset` is also sent, it must match the offset embedded in `testDate`
+- always send the correct `testDateOffset` that matches the timezone configured on the device, for example `+02:00`
 - backend/cloud must receive timezone information so test times can be shown correctly in the timezone in which the test was taken
 
-Software update:
-
-- USB update
-- internet update
 
 ## 16. Localization
 
@@ -619,7 +597,7 @@ Software update:
 - BioEasy developers receive edit access
 - developers create the translation key structure
 - developers provide all English base strings
-- machine translation is used to translate the English base strings to all supported languages
+- machine translation is used to translate the English base strings to all the supported languages
 - translations are reviewed by human reviewers for every language
 - Tolgee exports are then adapted for device implementation
 
@@ -645,30 +623,12 @@ Supported languages should match the current mobile applications unless changed 
 
 ## 17. Quantitative Tests and Aflatoxin
 
-Quantitative tests should be documented separately from the default qualitative cassette flow.
-
 Rules:
 
-- incubation is only allowed if backend test-type configuration includes temperature and incubation time
-- quantitative/strip flows may require manual type selection
-- Aflatoxin flow should follow the current desktop-reader approach
 - Aflatoxin calibration curve must be loadable through ID chip or QR scanning
-- for quantitative test types, fetch and cache `measurementMethod` and `quantitativeRange` from the test type configuration
-- `quantitativeRange` contains `measurableRangeMin`, `measurableRangeMax`, `negativeRangeMin`, and `negativeRangeMax`
-- do not hardcode quantitative limits in the device
-- use the fetched measurable range to format the displayed quantitative value
-- if the measured value is within the inclusive measurable range, display the formatted numeric value
-- if the measured value is below `measurableRangeMin`, display `< {measurableRangeMin}`
-- if the measured value is above `measurableRangeMax`, display `> {measurableRangeMax}`
-- examples: `< 15`, `> 150`
-- use normal device locale number formatting for in-range values
-- the value-formatting rule above applies to quantitative result display in test detail, history detail, print output, and any other screen where the numeric level is shown
-- the positive/negative result label still comes from the test result itself; the measurable range only changes how the numeric level is displayed
-- fetch and store `negativeRangeMin` and `negativeRangeMax` together with the measurable range as part of the quantitative test type configuration
-- if a quantitative test type is missing `quantitativeRange`, fall back to displaying the formatted numeric value without the `<` or `>` threshold substitution
-- keep the last 5 loaded calibration curves on the device and automatically remove older ones when new ones are loaded
-- when a quantitative test type is selected, the configuration must include calibration-curve selection
-- calibration-curve selection is only visible for quantitative test types
+- Last 5 loaded calibration curves are stored in the device. Older ones are automatically removed when new ones are loaded
+- A calibration curve needs to be selected by the user in the Configuration. This Configuration option is only visible when a quantitative test type is selected
+
 
 ## 18. Export, Printing, and LIMS
 
@@ -748,8 +708,7 @@ Environment note:
 
 - pre-production is the main recommended testing environment for this project
 - pre-production mirrors production closely
-- production data is copied to pre-production on the first day of each month
-- this refresh overwrites pre-production data changes with production data
+- production data is copied to pre-production on the first day of each month. This also means that all preproduction data changes are removed on the first day of each month, they are overwritten by production data. 
 
 ### 20.2 Authentication and Login Sequence
 
@@ -778,16 +737,16 @@ Recommended sequence:
    That user type is `Operator`.
 2. Store the authenticated session/token.
 3. Call `GET /api/webapi/v2/Users/me`.
-4. Call `GET /api/webapi/v2/TestTypes` to obtain the full list of test types.
-5. Use the user/site context from `GET /api/webapi/v2/Users/me` to call `GET /api/webapi/v2/Sites/{id}` and obtain the site's test type configuration.
-6. Cache the full test type list and the effective site configuration locally, including `measurementMethod` and `quantitativeRange` for quantitative test types.
+4. Call `GET /api/webapi/v2/TestTypes` to obtain the full list of test types
+5. Use the returned user/site contex to call `GET /api/webapi/v2/Sites/{id}`. This returns the list of test types configurations for the user's test types. 
+6. Cache the full test type list and the effective site configuration locally.
 7. After successful login, move cached anonymous grouped test records into the logged-in queue, clear their remote group IDs, and reupload them through `POST /api/webapi/v2/GroupedTestRecords`.
 
 Important:
 
 - do not reassign anonymous verification records after login
 - if the device stays anonymous, keep using local test type configuration plus anonymous upload behavior
-- when uploading tests or verification, always include timezone data that matches the device configuration
+- when uploading tests or verification, always include the correct timezone offset from the device configuration
 
 ### 20.3 Grouped Test Upload Example
 
@@ -802,8 +761,8 @@ Implementation notes:
 - if confirmation is required, keep the records locally and upload only after the user aborts or after the final result is known
 - do not use deprecated `POST /api/webapi/v2/TestRecords` or `POST /api/webapi/v2/TestRecords/anonymous` for this device
 - the example below follows the minimum payload pattern already used by the mobile applications
-- `testDate` should include the local timezone offset in the timestamp, for example `2026-04-09T10:26:00+02:00`
-- if `testDateOffset` is sent, it must match the offset embedded in `testDate`
+- `readerData` should be base64-encoded reader output
+- `testDateOffset` must match the timezone configured on the device
 - use `POST /api/webapi/v2/GroupedTestRecords/{id}/comment` for group comments when comments are added after the group already exists
 
 ```json
@@ -811,10 +770,12 @@ Implementation notes:
   "appVersion": "1.0.0",
   "testRecords": [
     {
-      "testDate": "2026-04-09T10:26:00+02:00",
+      "testDate": "2026-04-09T10:26:00Z",
+      "testDateOffset": "+02:00",
       "readerSerialNumber": "5PR-000123",
       "route": "SAMPLE-182",
       "result": "Positive",
+      "readerData": "<base64-reader-data>",
       "testTypeId": 101,
       "operatorId": "OP-17",
       "substances": [
@@ -843,14 +804,17 @@ Use `POST /api/webapi/v2/GroupedTestRecords/anonymous`.
 Rules:
 
 - keep the full local values for route/sample ID, operator ID, and user-related linkage so the group can later be reassigned after login
-- in the anonymous grouped upload payload, omit `customerId`, `siteId`, `route`, and `operatorId`
-- do not send user-identity fields in the anonymous grouped upload payload
+- do not upload route/sample ID, operator identity, or user identity in plain form
 - upload `readerSerialNumber` in plain form
 - upload empty location
 - keep the local history state as `not synced`
-- do not display any backend-assigned group ID for anonymous grouped test records
-- if backend silently assigns a group ID on anonymous upload, ignore it for device UI
 - when the user later logs in, reupload the cached groups through the normal grouped endpoint
+
+Reference note:
+
+- the current mobile applications use the anonymous grouped endpoint with anonymous field transformation
+- in the mobile applications, `route` is removed and `operatorId` is replaced with a device identifier
+- the 5-Port Reader should follow the same anonymous-endpoint pattern, with the product rules in this document taking precedence
 
 ### 20.5 Verification Upload Example
 
@@ -859,17 +823,19 @@ Use `POST /api/webapi/v2/DeviceHealth`.
 Implementation notes:
 
 - send one payload per verification run
+- `readerData` should be base64-encoded reader output
 - `substances[*].intensity` is part of the verification payload
-- `testDate` should include the local timezone offset in the timestamp, for example `2026-04-09T10:26:00+02:00`
-- if `testDateOffset` is sent, it must match the offset embedded in `testDate`
+- `testDateOffset` must match the timezone configured on the device
 - pass/fail is determined by the verification rules in this document, not only by HTTP success
 
 ```json
 {
   "readerSerialNumber": "5PR-000123",
-  "testDate": "2026-04-09T10:26:00+02:00",
+  "testDate": "2026-04-09T10:26:00Z",
+  "testDateOffset": "+02:00",
   "comments": "Scheduled verification",
   "result": "Negative",
+  "readerData": "<base64-reader-data>",
   "testTypeId": 0,
   "operatorId": "OP-17",
   "substances": [
@@ -900,11 +866,36 @@ Target behavior:
 - upload anonymous verification records there
 - do not reassign anonymous verification records after login
 
-Dependency:
 
-- this endpoint is a planned backend extension and is not yet present in the current Swagger
+### 20.7 ReaderData
 
-### 20.7 Local Export Notes
+`readerData` should be documented and handled as raw reader output.
+
+Current mobile application behavior:
+
+- the reader returns raw measurement bytes as `[UInt8]`
+- the application stores those exact raw bytes in `readerData`
+- upload serializes `readerData` as a base64 string
+
+Qualitative flow details from the current parser:
+
+- the parser strips the first 2 bytes and the last 4 bytes from the raw response
+- the remaining payload is processed in 7-byte sets
+- each set contains position, height, and area values
+- the app uses those parsed values to calculate ratios and results, but the uploaded `readerData` remains the original raw bytes
+
+Quantitative flow details from the current parser:
+
+- the app still stores the original raw bytes in `readerData`
+- it also interprets the response as UTF-8 text split by `#` for app-side parsing of quantitative result data
+- even in this case, the upload field should still contain the original raw bytes encoded to base64
+
+Implementation rule:
+
+- treat `readerData` as opaque raw device output for backend traceability and future reprocessing
+- do not replace it with parsed ratios, JSON objects, or debug strings
+
+### 20.8 Local Export Notes
 
 - CSV and Excel are local device exports, not backend report downloads
 - use the exact column order and header names from `export.csv`
