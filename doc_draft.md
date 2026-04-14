@@ -86,7 +86,7 @@ Anonymous reassignment behavior:
 Anonymous verification behavior:
 
 - anonymous verification records should also upload
-- they are not reassigned after login
+- they are not reassigned after login!
 
 ## 6. Test Types and Configuration
 
@@ -104,20 +104,20 @@ Reason:
 Recommended behavior:
 
 - bundle the full test-types JSON in the software
-- on every device restart, attempt to download fresh test types
-- if logged in, also load the site-specific configuration
+- on every device restart (or any other regular event), attempt to download fresh test types
+- if logged in, also load the site-specific test type configuration
 - when fresh test types are successfully loaded, replace the bundled/cached set with the current backend version
 
 Anonymous mode:
 
 - load all test types
-- allow local enable/disable
+- allow local enable/disable of these test types
 
 Logged-in mode:
 
 - load all test types
-- apply site-enabled test type configuration from cloud
-- the device should not let the user override site enablement locally
+- apply site-enabled test type configuration from cloud. Filter all the test types only for those that are allowed for the particular site
+- the device should not let the user override site enablement locally. The user can only view the site's test type configuration in the Settings / Test Types
 
 ### 6.3 QR Setting
 
@@ -131,12 +131,12 @@ Rules:
 - if QR scanning is disabled, the user selects the test type manually
 - if the scanned test type is not enabled for the site or local anonymous configuration, the device must show a warning and block the run
 
-Configuration field behavior:
+### 6.4 Configuration field behavior
 
 - when `Sample ID` is present in the configuration flow, it is the first data-entry field
 - if `Operator ID` is also present, completing `Sample ID` must move focus immediately to `Operator ID`
-- this auto-advance must happen both after scanner input and after manual keyboard entry confirmed with `Enter`
-- the user must not need to manually select `Operator ID` after completing `Sample ID`
+- this auto-advance must happen both after scanner input and after manual keyboard entry confirmed with `Enter / Done`
+- the user should not need to manually select `Operator ID` after completing `Sample ID`
 
 ## 7. Test Execution Rules
 
@@ -162,15 +162,15 @@ Correct rule:
 
 Temperature validation:
 
-- the device temperature is set manually by the user at device level
-- when the cassette is identified, the device must validate the current heater state against the selected test type configuration
+- the device temperature is set manually by the user at device level in the Settings
+- when the cassette is identified, the device must validate the current heater temperature against the selected test type configuration
 - if the device temperature is outside the allowed range for that test type, block the test and show a warning
 
 ### 7.3 Repeat Incubation Rule
 
 For normal tests only:
 
-- if the first test result is positive or invalid and that test was incubated, repeat incubation for 2 more minutes
+- if the first test result is positive and that test was incubated, repeat incubation for 2 more minutes
 - judge the outcome based on the repeated reading
 
 This rule does not apply to controls.
@@ -178,10 +178,9 @@ This rule does not apply to controls.
 ### 7.4 Cassette Handling
 
 - insertion can be detected reliably
-- cassette removal cannot be relied on in all cases
+- cassette removal cannot be relied on and is not detected by the reader
 - the user can interrupt incubation
-- if incubation is interrupted, the cassette must be removed manually
-- the device does not eject the cassette
+- the device does not eject the cassette automatically. This is to stop contamination of the surroundings with a potentially positive milk
 
 ## 8. Confirmation Flow
 
