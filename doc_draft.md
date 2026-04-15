@@ -816,25 +816,27 @@ Pre-production authentication and configuration example:
 BASE_URL="https://preprd-milksafe.chr-hansen.com/api/v2"
 TOKEN_URL="https://chrhmilksafepreprod.b2clogin.com/tfp/chrhmilksafepreprod.onmicrosoft.com/B2C_1A_ROPC_Auth/oauth2/v2.0/token"
 CLIENT_ID="f8afc25d-b6bf-441e-92da-0e5aad497983"
-USERNAME="<USERNAME>"
-PASSWORD="<PASSWORD>"
+MILKSAFE_LOGIN="<LOGIN>"
+MILKSAFE_PASSWORD="<PASSWORD>"
 
-ACCESS_TOKEN=$(curl -sS -X POST "$TOKEN_URL" \
+command curl -sS -X POST "$TOKEN_URL" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data-urlencode "grant_type=password" \
-  --data-urlencode "username=$USERNAME" \
-  --data-urlencode "password=$PASSWORD" \
-  --data-urlencode "scope=openid offline_access $CLIENT_ID" \
+  --data-urlencode "username=$MILKSAFE_LOGIN" \
+  --data-urlencode "password=$MILKSAFE_PASSWORD" \
+  --data-urlencode "scope=openid $CLIENT_ID offline_access" \
   --data-urlencode "client_id=$CLIENT_ID" \
-  --data-urlencode "response_type=token id_token" | jq -r '.access_token')
+  --data-urlencode "response_type=token id_token" | jq .
 ```
 
 Authenticated configuration fetch example:
 
 ```bash
-SITE_ID=$(curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/users/me" | jq -r '.currentUser.siteId')
-curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/TestTypes?pageSize=9999"
-curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/Sites/$SITE_ID"
+ACCESS_TOKEN="<ACCESS_TOKEN_FROM_LOGIN_RESPONSE>"
+
+command curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/users/me" | jq .
+command curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/TestTypes?pageSize=9999" | jq .
+command curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/Sites/<SITE_ID_FROM_USERS_ME>" | jq .
 ```
 
 The `curl` examples below assume `BASE_URL` and `ACCESS_TOKEN` are already set.
@@ -938,19 +940,19 @@ Implementation notes:
 ```
 
 ```bash
-curl -sS -X POST "$BASE_URL/GroupedTestRecords" \
+command curl -sS -X POST "$BASE_URL/GroupedTestRecords" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  --data @grouped-test-upload.json
+  --data @grouped-test-upload.json | jq .
 ```
 
 Group comment example:
 
 ```bash
-curl -sS -X POST "$BASE_URL/GroupedTestRecords/<GROUP_ID>/comment" \
+command curl -sS -X POST "$BASE_URL/GroupedTestRecords/<GROUP_ID>/comment" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  --data '"Operator note"'
+  --data '"Operator note"' | jq .
 ```
 
 ### 20.4 Anonymous Grouped Upload Rules
@@ -970,9 +972,9 @@ Rules:
 - when the user later logs in, reupload the cached groups through the normal grouped endpoint
 
 ```bash
-curl -sS -X POST "$BASE_URL/GroupedTestRecords/anonymous" \
+command curl -sS -X POST "$BASE_URL/GroupedTestRecords/anonymous" \
   -H "Content-Type: application/json" \
-  --data @anonymous-grouped-test-upload.json
+  --data @anonymous-grouped-test-upload.json | jq .
 ```
 
 ### 20.5 Verification Upload Example
@@ -1016,10 +1018,10 @@ Implementation notes:
 ```
 
 ```bash
-curl -sS -X POST "$BASE_URL/DeviceHealth" \
+command curl -sS -X POST "$BASE_URL/DeviceHealth" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  --data @verification-upload.json
+  --data @verification-upload.json | jq .
 ```
 
 ### 20.6 Anonymous Verification Endpoint
@@ -1035,9 +1037,9 @@ Important:
 - this endpoint is live on the app host even though it is not present in the current Swagger
 
 ```bash
-curl -sS -X POST "$BASE_URL/DeviceHealth/anonymous" \
+command curl -sS -X POST "$BASE_URL/DeviceHealth/anonymous" \
   -H "Content-Type: application/json" \
-  --data @anonymous-verification-upload.json
+  --data @anonymous-verification-upload.json | jq .
 ```
 
 ### 20.7 Local Export Notes
