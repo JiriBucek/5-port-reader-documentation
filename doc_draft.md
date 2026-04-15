@@ -6,6 +6,16 @@ This document is the implementation specification for the MilkSafe 5-Port Reader
 
 It is a more detailed version of the high-level requirements document and should be used to explain the rules and behaviors that are not obvious from the design alone.
 
+This is the main detailed implementation document for the project.
+
+It is intentionally not meant to be extremely long or exhaustive. It should stay simple, easy to read, and focused on the main implementation rules and expected behavior.
+
+This document assumes that BioEasy already knows the MilkSafe ecosystem well from the existing Desktop Reader implementation and can reuse that knowledge here.
+
+The goal is to provide the most important information that should be sufficient for implementation in that context.
+
+If any area needs more detail or clarification, add a comment in this document and ask for it. Additional guidance can then be provided for that specific topic.
+
 Use this document for:
 
 - product rules
