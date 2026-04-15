@@ -140,10 +140,12 @@ The 5-Port Reader uses a global QR scanning setting.
 Rules:
 
 - QR scanning can be turned on or off in Settings
+- use the same MilkSafe ecosystem QR parsing and validation rules already used for the BioEasy cassette QR format
 - when QR scanning is enabled and the QR is read correctly, the test type is prefilled in the configuration modal
 - when the test type is prefilled from QR, the user must not be able to change it manually
 - if QR scanning is disabled, the user selects the test type manually
 - if the scanned test type is not enabled for the site or local anonymous configuration, the device must show a warning and block the run
+- use the same QR-derived cassette identity rules as the existing ecosystem for used-cassette validation and confirmation type matching
 
 ### 6.4 Configuration field behavior
 
@@ -223,6 +225,17 @@ Detailed paths:
 - Test 1 positive, Test 2 negative, Test 3 positive -> Positive
 - Test 1 positive, Test 2 negative, Test 3 negative -> Negative
 
+Decision rule:
+
+- auto-open a decision modal only when the user must decide whether to continue or stop
+- if the result already gives a final flow outcome, do not auto-open a decision modal
+- Test 1 negative -> no decision modal
+- Test 1 positive -> open decision modal
+- Test 2 positive -> no decision modal
+- Test 2 negative -> open decision modal
+- Test 3 final result -> no decision modal
+- control flows -> no decision modal
+
 Upload timing:
 
 - do not upload individual test records one by one
@@ -245,6 +258,7 @@ Example:
 
 Required behavior:
 
+- auto-opened modals in this runtime queue are decision modals only
 - decision modals must be queued
 - only one modal is visible at a time
 - after the user resolves the modal for one channel, the next waiting modal must open immediately
@@ -329,9 +343,17 @@ Verification uses the device-health endpoint, not grouped test endpoint.
 
 Cloud behavior:
 
-- the system default is `250` aggregated tests across all 5 slots
+- the system default is `250` aggregated individual tests across all 5 slots
 - backend/cloud device health treats devices above this value as outstanding for verification
 - verification upload resets this count in backend
+
+Counting rule:
+
+- count individual completed tests, not grouped flows
+- every completed normal test record counts as `1`
+- every completed control test counts as `1`
+- a confirmation flow with 3 individual tests counts as `3`
+- the grouped result itself does not add any extra count
 
 Device behavior:
 
@@ -350,7 +372,8 @@ Device behavior:
 - records are shown within their groups/flows
 - history only shows data taken on this device
 - grouped results are cached locally and uploaded later when connectivity is available
-- grouped test history may optionally be downloaded back from cloud after a device reset, but only grouped test records created on this particular device may be shown
+- BioEasy may choose to fetch grouped test history back from backend after reset or after a later login if that is useful for the implementation
+- if grouped test history is restored from backend, only records created on this device may be shown
 - do not display test records recorded on a different device that may have used the same operator credentials
 - anonymous grouped test records should show `not synced` and should not show a group ID
 - show group ID only for logged-in grouped test records that have synced successfully
@@ -407,6 +430,8 @@ Verification detail should include:
 - recommended retry cadence for unsynced grouped test records is every 60 seconds
 - display a group ID only after the grouped record has synced successfully
 - if a logged-in grouped record is still unsynced, do not display a group ID yet
+- BioEasy may additionally restore grouped test history for this device from backend after login if that is useful for the implementation
+- if grouped test history is restored from backend, it must be filtered to this device only
 
 ### 13.2 Anonymous Grouped Test Records
 
@@ -435,7 +460,8 @@ When the user later logs in:
 - local verification history is removed
 - uploaded grouped test records remain in backend
 - uploaded verification records remain in backend
-- grouped test history may optionally be downloaded back after reset, but only records created on this device may be shown
+- BioEasy may choose to restore grouped test history from backend after reset
+- if grouped test history is restored after reset, only records created on this device may be shown
 - do not restore grouped test records from other devices that used the same operator credentials
 - verification history is not restored back onto the device from backend
 
@@ -554,11 +580,14 @@ Reader serial number rule:
 
 - `readerSerialNumber` must be uploaded on every 5-Port Reader grouped test record
 - `readerSerialNumber` must also be uploaded on every verification record
-- the 5-Port Reader serial number format must be predictable and must use a defined format, preferably with a dedicated prefix
-- BioEasy must provide the exact 5-Port Reader serial number format before the backend-side implementation is finalized
+- the 5-Port Reader serial number format is `5PYYMM0001`
+- `5P` is the required reader-family prefix
+- `YY` is the year
+- `MM` is the month
+- `0001` is the running serial number
 - the backend currently uses known device-identification patterns to choose the correct grouped-flow result calculation
 - examples of existing known patterns are desktop-reader serial numbers starting with `DR` and portable-reader serial numbers starting with `PR`
-- the backend must be updated to recognize the 5-Port Reader serial-number format and apply the current confirmation-flow calculation for that device
+- the backend must be updated to recognize the `5P` prefix and the 5-Port Reader serial-number format and apply the current confirmation-flow calculation for that device
 - if this backend change is not implemented, some grouped flows may be calculated with the deprecated confirmation-flow logic and the grouped result may be wrong
 
 Date/time rule:
