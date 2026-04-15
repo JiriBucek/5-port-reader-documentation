@@ -800,7 +800,7 @@ Recommended sequence:
 2. Store the authenticated session/token.
 3. Call `GET /api/v2/users/me`.
 4. Call `GET /api/v2/TestTypes` to obtain the full list of test types.
-5. Use the user/site context from `GET /api/v2/users/me` to call `GET /api/v2/Sites/{id}` and obtain the site's test type configuration.
+5. Use `currentUser.siteId` from `GET /api/v2/users/me` to call `GET /api/v2/Sites/{id}` and obtain the site's test type configuration.
 6. Cache the full test type list and the effective site configuration locally, including `measurementMethod` and `quantitativeRange` for quantitative test types.
 7. After successful login, move cached anonymous grouped test records into the logged-in queue, clear their remote group IDs, and reupload them through `POST /api/v2/GroupedTestRecords`.
 
@@ -809,6 +809,35 @@ Important:
 - do not reassign anonymous verification records after login
 - if the device stays anonymous, keep using local test type configuration plus anonymous upload behavior
 - when uploading tests or verification, always include timezone data that matches the device configuration
+
+Pre-production authentication and configuration example:
+
+```bash
+BASE_URL="https://preprd-milksafe.chr-hansen.com/api/v2"
+TOKEN_URL="https://chrhmilksafepreprod.b2clogin.com/tfp/chrhmilksafepreprod.onmicrosoft.com/B2C_1A_ROPC_Auth/oauth2/v2.0/token"
+CLIENT_ID="f8afc25d-b6bf-441e-92da-0e5aad497983"
+USERNAME="<USERNAME>"
+PASSWORD="<PASSWORD>"
+
+ACCESS_TOKEN=$(curl -sS -X POST "$TOKEN_URL" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=password" \
+  --data-urlencode "username=$USERNAME" \
+  --data-urlencode "password=$PASSWORD" \
+  --data-urlencode "scope=openid offline_access $CLIENT_ID" \
+  --data-urlencode "client_id=$CLIENT_ID" \
+  --data-urlencode "response_type=token id_token" | jq -r '.access_token')
+```
+
+Authenticated configuration fetch example:
+
+```bash
+SITE_ID=$(curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/users/me" | jq -r '.currentUser.siteId')
+curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/TestTypes?pageSize=9999"
+curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/Sites/$SITE_ID"
+```
+
+The `curl` examples below assume `BASE_URL` and `ACCESS_TOKEN` are already set.
 
 ### 20.3 Grouped Test Upload Example
 
@@ -834,7 +863,7 @@ Implementation notes:
   "testRecords": [
     {
       "testDate": "2026-04-09T10:26:00+02:00",
-      "readerSerialNumber": "PR22050201",
+      "readerSerialNumber": "<READER_SERIAL>",
       "route": "SAMPLE-182",
       "result": "Positive",
       "testTypeId": 3,
@@ -870,7 +899,7 @@ Implementation notes:
     },
     {
       "testDate": "2026-04-09T10:31:00+02:00",
-      "readerSerialNumber": "PR22050201",
+      "readerSerialNumber": "<READER_SERIAL>",
       "route": "SAMPLE-182",
       "result": "Positive",
       "testTypeId": 3,
@@ -908,6 +937,22 @@ Implementation notes:
 }
 ```
 
+```bash
+curl -sS -X POST "$BASE_URL/GroupedTestRecords" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data @grouped-test-upload.json
+```
+
+Group comment example:
+
+```bash
+curl -sS -X POST "$BASE_URL/GroupedTestRecords/<GROUP_ID>/comment" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '"Operator note"'
+```
+
 ### 20.4 Anonymous Grouped Upload Rules
 
 Use `POST /api/v2/GroupedTestRecords/anonymous`.
@@ -923,6 +968,12 @@ Rules:
 - do not display any backend-assigned group ID for anonymous grouped test records
 - if backend silently assigns a group ID on anonymous upload, ignore it for device UI
 - when the user later logs in, reupload the cached groups through the normal grouped endpoint
+
+```bash
+curl -sS -X POST "$BASE_URL/GroupedTestRecords/anonymous" \
+  -H "Content-Type: application/json" \
+  --data @anonymous-grouped-test-upload.json
+```
 
 ### 20.5 Verification Upload Example
 
@@ -940,7 +991,7 @@ Implementation notes:
 
 ```json
 {
-  "readerSerialNumber": "5PR-000123",
+  "readerSerialNumber": "<READER_SERIAL>",
   "testDate": "2026-04-09T10:26:00+02:00",
   "comments": "Scheduled verification",
   "result": "Negative",
@@ -964,6 +1015,13 @@ Implementation notes:
 }
 ```
 
+```bash
+curl -sS -X POST "$BASE_URL/DeviceHealth" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data @verification-upload.json
+```
+
 ### 20.6 Anonymous Verification Endpoint
 
 Use `POST /api/v2/DeviceHealth/anonymous`.
@@ -975,6 +1033,12 @@ Use `POST /api/v2/DeviceHealth/anonymous`.
 Important:
 
 - this endpoint is live on the app host even though it is not present in the current Swagger
+
+```bash
+curl -sS -X POST "$BASE_URL/DeviceHealth/anonymous" \
+  -H "Content-Type: application/json" \
+  --data @anonymous-verification-upload.json
+```
 
 ### 20.7 Local Export Notes
 
