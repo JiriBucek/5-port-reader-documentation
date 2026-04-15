@@ -473,7 +473,8 @@ Use these annotation values in 5-Port Reader grouped test records:
 
 Normal flow:
 
-- the first test record in a flow uses `Original`
+- if the flow ends after one negative test, upload that single test record with no annotation
+- if the first test is positive and confirmation flow starts, that first test record uses `Original`
 - the second test record in the same flow uses `Confirmation`
 - the third test record in the same flow uses `SecondConfirmation`
 - if the user stops after the first positive test, upload the single existing test record as `Original`
@@ -538,6 +539,17 @@ Result value rule:
 - device-local history only shows records created on this device, so normal 5-Port Reader history should not create or show new `WeakPositive` records
 
 Do not upload `readerData`.
+
+Reader serial number rule:
+
+- `readerSerialNumber` must be uploaded on every 5-Port Reader grouped test record
+- `readerSerialNumber` must also be uploaded on every verification record
+- the 5-Port Reader serial number format must be predictable and must use a defined format, preferably with a dedicated prefix
+- BioEasy must provide the exact 5-Port Reader serial number format before the backend-side implementation is finalized
+- the backend currently uses known device-identification patterns to choose the correct grouped-flow result calculation
+- examples of existing known patterns are desktop-reader serial numbers starting with `DR` and portable-reader serial numbers starting with `PR`
+- the backend must be updated to recognize the 5-Port Reader serial-number format and apply the current confirmation-flow calculation for that device
+- if this backend change is not implemented, some grouped flows may be calculated with the deprecated confirmation-flow logic and the grouped result may be wrong
 
 Date/time rule:
 
